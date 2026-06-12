@@ -29,20 +29,24 @@ if [[ -d /etc/sudoers.d ]]; then
     unset _sf
 fi
 
-# ── EX-SUD-03: sudo 명령 로깅 ──────────────────────────────────────────────────
-check_header "EX-SUD-03" "sudo 명령 실행 로깅 설정"
-if grep -rqE "^[[:space:]]*Defaults.*logfile|^[[:space:]]*Defaults.*syslog" \
-    /etc/sudoers /etc/sudoers.d/ 2>/dev/null; then
-    result_safe "sudo 명령 로깅 설정이 있습니다"
+# ── EX-SUD-03: sudo 세션 레코딩 (I/O log) ─────────────────────────────────────
+# U-71 에서 sudo logfile/syslog 로깅을 점검하므로, 여기서는 그 위에 더하는
+# I/O 세션 레코딩(입출력 전체 기록) 설정 여부를 별도 점검
+check_header "EX-SUD-03" "sudo 세션 I/O 레코딩 설정 (CIS Level 2)"
+_io_log=$(grep -rh "^[[:space:]]*Defaults.*log_output\|^[[:space:]]*Defaults.*iolog_dir" \
+    /etc/sudoers /etc/sudoers.d/ 2>/dev/null | grep -v "^#" | head -1 || true)
+if [[ -n "${_io_log}" ]]; then
+    result_safe "sudo 세션 I/O 레코딩 설정됨: ${_io_log}"
 else
-    result_warn "sudo 명령 로깅 미설정 — /etc/sudoers 에 'Defaults logfile=/var/log/sudo.log' 추가 권장"
+    result_warn "sudo 세션 I/O 레코딩 미설정 — 'Defaults log_output' 또는 'Defaults iolog_dir=/var/log/sudo-io' 설정 권장 (명령뿐 아니라 전체 입출력 기록)"
 fi
+unset _io_log
 
 # ── EX-PKG-01: RPM 패키지 무결성 검사 ──────────────────────────────────────────
 check_header "EX-PKG-01" "패키지 무결성 검사"
 if command -v rpm &>/dev/null; then
     result_info "RPM 패키지 무결성 검사 중... (수분 소요 가능)"
-    _tampered_file="${RESULT_DIR}/tampered_packages.txt"
+    _tampered_file="${CF%.txt}_tampered.txt"
     # MD5 불일치만 출력 (..5......)
     rpm -Va --nosignature 2>/dev/null | grep -E "^\.\.[5]" > "${_tampered_file}" || true
     _tampered_cnt=$(wc -l < "${_tampered_file}")
@@ -54,7 +58,7 @@ if command -v rpm &>/dev/null; then
     unset _tampered_file _tampered_cnt
 elif command -v dpkg &>/dev/null; then
     result_info "dpkg 무결성 검사 중..."
-    _tampered_file="${RESULT_DIR}/tampered_packages.txt"
+    _tampered_file="${CF%.txt}_tampered.txt"
     dpkg --verify 2>/dev/null | grep -v "^$" > "${_tampered_file}" || true
     _tampered_cnt=$(wc -l < "${_tampered_file}")
     if [[ "${_tampered_cnt}" -eq 0 ]]; then
@@ -94,12 +98,12 @@ unset _risky_svcs _svc _risky_found
 
 # ── EX-SVC-02: 실행 중인 서비스 목록 저장 ──────────────────────────────────────
 check_header "EX-SVC-02" "현재 실행 중인 서비스 목록"
-_svc_file="${RESULT_DIR}/running_services.txt"
+_svc_file="${CF%.txt}_services.txt"
 if ${SYSTEMD_AVAILABLE}; then
     systemctl list-units --type=service --state=running --no-pager 2>/dev/null \
         > "${_svc_file}" || true
     _svc_cnt=$(grep -c "\.service" "${_svc_file}" 2>/dev/null || echo 0)
     result_info "실행 중인 서비스 ${_svc_cnt}개 — 목록 저장됨: ${_svc_file}"
-    result_warn "실행 중인 서비스 목록을 검토하여 불필요한 서비스 비활성화 권장"
+    result_info "실행 중인 서비스 목록을 검토하여 불필요한 서비스 비활성화 권장"
 fi
 unset _svc_file _svc_cnt

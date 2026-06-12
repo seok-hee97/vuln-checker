@@ -1,0 +1,4 @@
+# Runtime Python dependencies for report/generate_report.py.
+# The report generator currently uses only the Python standard library.
+# Keep this file intentionally empty of packages unless a real runtime
+# dependency is introduced.

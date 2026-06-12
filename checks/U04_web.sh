@@ -24,14 +24,29 @@ result_info "Apache 설정 파일: ${_httpd_conf}"
 
 # 모든 설정 파일 (VirtualHost 포함) 수집
 _all_confs=("${_httpd_conf}")
+_server_root=$(grep -hE "^[[:space:]]*ServerRoot[[:space:]]" "${_httpd_conf}" 2>/dev/null \
+    | awk '{print $2}' | tr -d '"' | tail -1)
+_server_root="${_server_root:-${_httpd_confdir}}"
+
+_add_apache_conf() {
+    local _candidate="$1"
+    [[ -f "${_candidate}" ]] || return 0
+    local _existing
+    for _existing in "${_all_confs[@]}"; do
+        [[ "${_existing}" == "${_candidate}" ]] && return 0
+    done
+    _all_confs+=("${_candidate}")
+}
+
 while IFS= read -r _inc; do
     # glob 처리
-    _inc=$(echo "${_inc}" | sed 's/Include\(Optional\)\?[[:space:]]*//' | tr -d '"')
+    _inc=$(echo "${_inc}" | sed -E 's/Include(Optional)?[[:space:]]*//' | tr -d '"')
+    [[ "${_inc}" != /* ]] && _inc="${_server_root}/${_inc}"
     for _g in ${_inc}; do
-        [[ -f "${_g}" ]] && _all_confs+=("${_g}")
+        _add_apache_conf "${_g}"
     done
 done < <(grep -ihE "^[[:space:]]*(IncludeOptional|Include)[[:space:]]" "${_httpd_conf}" 2>/dev/null || true)
-unset _inc _g _f
+unset _inc _g _f _server_root
 
 # ── U-35: 디렉터리 리스팅 비활성화 ─────────────────────────────────────────────
 check_header "U-35" "디렉터리 리스팅 비활성화 (Options -Indexes)"
@@ -132,9 +147,9 @@ unset _limit
 
 # ── U-41: 웹 서비스 정보 노출 방지 ─────────────────────────────────────────────
 check_header "U-41" "웹 서비스 버전 정보 노출 방지 (ServerTokens, ServerSignature)"
-_tokens=$(grep -hiE "^[[:space:]]*ServerTokens" "${_httpd_conf}" \
+_tokens=$(grep -hiE "^[[:space:]]*ServerTokens" "${_all_confs[@]}" \
     | awk '{print $2}' | tail -1)
-_signature=$(grep -hiE "^[[:space:]]*ServerSignature" "${_httpd_conf}" \
+_signature=$(grep -hiE "^[[:space:]]*ServerSignature" "${_all_confs[@]}" \
     | awk '{print $2}' | tail -1)
 
 result_info "ServerTokens  : ${_tokens:-미설정 (기본값: Full)}"
@@ -152,4 +167,5 @@ else
     result_vuln "ServerSignature = ${_signature:-On(기본)} — Off 로 설정 필요"
 fi
 
+unset -f _add_apache_conf
 unset _tokens _signature _all_confs _httpd_conf _httpd_confdir

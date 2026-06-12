@@ -33,7 +33,7 @@ done
 
 if [[ -n "${_log_conf}" ]]; then
     result_safe "로그 설정 파일 존재: ${_log_conf}"
-    check_file_attr "${_log_conf}" "root" "644|640"
+    result_info "${_log_conf} — 소유자: $(file_owner "${_log_conf}"), 권한: $(file_perm_octal "${_log_conf}") (권한 점검은 U-11 에서 수행)"
 
     # 원격 로그 서버 설정 확인
     _remote_log=$(grep -E "^[[:space:]]*(\*\.\*|auth|kern|daemon)[[:space:]]*@" \
@@ -139,16 +139,14 @@ if [[ -n "${_log_conf_detail}" ]]; then
     else
         result_warn "크리티컬/긴급 이벤트 로깅 설정 확인 필요 (*.crit, *.emerg 권장)"
     fi
-    unset _f
 else
     result_vuln "로그 설정 파일이 없어 상세 분석 불가"
 fi
-unset _log_conf_detail
+unset _log_conf_detail _f
 
 # ── U-68: 원격 로그 서버 설정 확인 ────────────────────────────────────────────
 check_header "U-68" "원격 로그 서버 전송 설정"
 _remote_found=false
-_log_conf_68=""
 for _f in /etc/rsyslog.conf /etc/rsyslog.d/*.conf /etc/syslog.conf; do
     [[ -f "${_f}" ]] || continue
     _r=$(grep -Ev "^#|^$" "${_f}" 2>/dev/null \
@@ -164,7 +162,7 @@ for _f in /etc/rsyslog.conf /etc/rsyslog.d/*.conf /etc/syslog.conf; do
 done
 
 ${_remote_found} || result_warn "원격 로그 서버 전송 설정이 없습니다 — 중요 시스템은 중앙 로그 서버 구성 강력 권장"
-unset _remote_found _f _rl _log_conf_68
+unset _remote_found _f _rl
 
 # ── U-69: 로그 파일 접근 권한 설정 (wtmp, btmp, lastlog) ──────────────────────
 check_header "U-69" "로그 파일 접근 권한 설정 (wtmp, btmp, lastlog)"
@@ -263,3 +261,4 @@ fi
 _lr_d_cnt=$(find /etc/logrotate.d -type f 2>/dev/null | wc -l || echo 0)
 result_info "/etc/logrotate.d/ 개별 설정 파일 수: ${_lr_d_cnt}개"
 unset _lr_d_cnt
+

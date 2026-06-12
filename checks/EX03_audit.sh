@@ -5,14 +5,16 @@ section_header "감사 로그 auditd (CIS Benchmark)"
 
 # ── EX-AUD-01: auditd 서비스 실행 여부 ─────────────────────────────────────────
 check_header "EX-AUD-01" "auditd 서비스 실행 여부"
+_auditd_running=false
 if is_service_active "auditd" 2>/dev/null; then
     result_safe "auditd 서비스가 실행 중입니다"
+    _auditd_running=true
 else
     result_vuln "auditd 서비스가 실행되지 않고 있습니다 — systemctl enable --now auditd"
-    return
 fi
 
 # ── EX-AUD-02: 감사 규칙 파일 존재 여부 ────────────────────────────────────────
+# 파일 기반 점검 — auditd 실행 상태와 무관하게 수행
 check_header "EX-AUD-02" "감사 규칙 파일 및 주요 파일 감사 여부"
 _audit_rules=""
 for _f in /etc/audit/rules.d/audit.rules /etc/audit/rules.d/50-hardening.rules \
@@ -48,6 +50,7 @@ fi
 unset _audit_rules _f
 
 # ── EX-AUD-03: auditd 설정 파일 점검 ───────────────────────────────────────────
+# 파일 기반 점검 — auditd 실행 상태와 무관하게 수행
 check_header "EX-AUD-03" "auditd 설정 (로그 크기, 가득 찼을 때 동작)"
 _auditd_conf="/etc/audit/auditd.conf"
 if [[ -f "${_auditd_conf}" ]]; then
@@ -82,8 +85,11 @@ fi
 unset _auditd_conf
 
 # ── EX-AUD-04: 현재 로드된 감사 규칙 수 확인 ───────────────────────────────────
+# 런타임 점검 — auditd 실행 중일 때만 수행
 check_header "EX-AUD-04" "현재 로드된 감사 규칙 수"
-if command -v auditctl &>/dev/null; then
+if ! ${_auditd_running}; then
+    result_warn "auditd 미실행으로 로드된 규칙을 확인할 수 없습니다 — auditd 활성화 후 재점검 필요"
+elif command -v auditctl &>/dev/null; then
     _rule_cnt=$(auditctl -l 2>/dev/null | grep -vc "^List\|^No rules" || echo 0)
     if [[ "${_rule_cnt}" -gt 0 ]]; then
         result_safe "로드된 감사 규칙 ${_rule_cnt}개"
@@ -95,14 +101,23 @@ else
     result_warn "auditctl 명령을 찾을 수 없습니다"
 fi
 
-# ── 이하 감사 규칙 내용 점검 (CIS Benchmark - 주요 감사 이벤트 커버리지) ──────────
-# 모든 규칙 파일을 하나의 문자열로 합산해 패턴 검사
+# ── 감사 규칙 내용 점검 (EX-AUD-05~09) ─────────────────────────────────────────
+# 규칙 파일과 런타임 모두 합산 (auditd 미실행 시 파일 기반만 점검)
 _all_rules=""
 for _rf in /etc/audit/rules.d/*.rules /etc/audit/audit.rules; do
     [[ -f "${_rf}" ]] && _all_rules+=$(cat "${_rf}" 2>/dev/null || true)
 done
-# auditctl -l 런타임 규칙도 포함
-command -v auditctl &>/dev/null && _all_rules+=$(auditctl -l 2>/dev/null || true)
+if ${_auditd_running} && command -v auditctl &>/dev/null; then
+    _all_rules+=$(auditctl -l 2>/dev/null || true)
+fi
+
+if [[ -z "${_all_rules}" && ! ${_auditd_running} ]]; then
+    result_warn "auditd 미실행 + 규칙 파일 없음 — EX-AUD-05~09 점검 생략"
+    unset _all_rules _rf _auditd_running
+    return
+fi
+
+${_auditd_running} || result_info "auditd 미실행 — 이하 규칙 점검은 설정 파일 기반으로만 수행됨 (런타임 비활성 상태)"
 
 # ── EX-AUD-05: 권한 상승 명령 감사 (sudo, su, newgrp, chsh) ────────────────────
 check_header "EX-AUD-05" "권한 상승 명령 감사 규칙 (sudo, su, newgrp)"
@@ -158,4 +173,4 @@ else
     result_info "예시: -a always,exit -F arch=b64 -S adjtimex,settimeofday,clock_settime -k time-change"
 fi
 
-unset _all_rules _rf
+unset _all_rules _rf _auditd_running

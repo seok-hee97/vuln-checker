@@ -35,19 +35,19 @@ _log_tty()  { printf '%b\n' "$*"; }
 # ── 판정 결과 함수 ─────────────────────────────────────────────────────────────
 # 결과파일에는 plain text, 터미널에는 색상 출력 (ANSI 코드가 파일에 오염되지 않음)
 result_safe() {
-    ((SAFE++)); ((TOTAL++))
+    ((SAFE+=1)); ((TOTAL+=1))
     _log_file "    ==> [안전] $*"
     _log_tty  "    ==> ${C_GREEN}[안전]${C_RESET} $*"
 }
 
 result_vuln() {
-    ((VULN++)); ((TOTAL++))
+    ((VULN+=1)); ((TOTAL+=1))
     _log_file "    ==> [취약] $*"
     _log_tty  "    ==> ${C_RED}[취약]${C_RESET} $*"
 }
 
 result_warn() {
-    ((WARN++))
+    ((WARN+=1))
     _log_file "    ==> [권장] $*"
     _log_tty  "    ==> ${C_YELLOW}[권장]${C_RESET} $*"
 }

@@ -122,6 +122,31 @@ teardown() {
     [ "${SAFE}" -ge $(( before_safe + 1 )) ]
 }
 
+@test "perm_within_limit: 실제 권한이 기준보다 엄격하면 안전" {
+    run perm_within_limit "640" "644"
+    [ "${status}" -eq 0 ]
+}
+
+@test "perm_within_limit: 실제 권한이 기준보다 느슨하면 취약" {
+    run perm_within_limit "666" "644"
+    [ "${status}" -ne 0 ]
+}
+
+@test "check_file_attr: 기준보다 엄격한 권한은 SAFE++" {
+    local _tmp
+    _tmp=$(mktemp /tmp/bats_perm_test_XXXXXX)
+    chmod 640 "${_tmp}"
+    local _owner
+    _owner=$(file_owner "${_tmp}")
+
+    local s="${SAFE}" t="${TOTAL}"
+    check_file_attr "${_tmp}" "${_owner}" "644"
+    rm -f "${_tmp}"
+
+    [ "${SAFE}" -eq $(( s + 1 )) ]
+    [ "${TOTAL}" -eq $(( t + 1 )) ]
+}
+
 # ── result_* 카운터 동작 ─────────────────────────────────────────────────────
 
 @test "result_safe: SAFE++, TOTAL++" {
@@ -175,8 +200,9 @@ teardown() {
 # ── is_service_active ────────────────────────────────────────────────────────
 
 @test "is_service_active: 존재하지 않는 서비스는 non-zero 반환" {
-    run is_service_active "nonexistent_service_xyz_12345"
-    [ "${status}" -ne 0 ]
+    if is_service_active "nonexistent_service_xyz_12345"; then
+        return 1
+    fi
 }
 
 # ── is_xinetd_disabled ───────────────────────────────────────────────────────

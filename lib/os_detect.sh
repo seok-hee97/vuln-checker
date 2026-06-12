@@ -12,6 +12,7 @@
 #   PAM_AUTH_FILE     — /etc/pam.d/password-auth (rhel) | /etc/pam.d/common-auth (debian)
 #   PAM_PASS_FILE     — /etc/pam.d/system-auth   (rhel) | /etc/pam.d/common-password (debian)
 
+# shellcheck disable=SC2034
 OS_ID=""
 OS_VER=""
 OS_FAMILY=""

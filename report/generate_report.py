@@ -9,6 +9,7 @@ import sys
 import json
 import re
 from datetime import datetime
+from html import escape
 from pathlib import Path
 
 
@@ -61,13 +62,12 @@ def parse_results(txt_path: str) -> dict:
                 continue
             if re.match(r"^  [가-힣A-Z]", line) and not line.strip().startswith("["):
                 _stripped = line.strip()
-                # 구분선이 아닌 텍스트 헤더
                 if not re.match(r"^[-=]+$", _stripped):
                     current_section = _stripped
                 continue
 
-            # 점검 항목 헤더: [U-01], [EX-SSH-01], [U-43-extra] 등 모든 ID 패턴
-            m = re.match(r"\s+\[([A-Za-z0-9-]+)\]\s+(.+)", line)
+            # 점검 항목 헤더: [U-01], [U-24/U-64], [EX-KRN-01~06], [U-43-extra] 등
+            m = re.match(r"\s+\[([A-Za-z0-9/_~-]+)\]\s+(.+)", line)
             if m:
                 current_check_id = m.group(1)
                 current_check = m.group(2).strip()
@@ -90,6 +90,24 @@ def parse_results(txt_path: str) -> dict:
                     break
 
     return data
+
+
+def calc_section_stats(items: list) -> dict:
+    """섹션별 safe/vuln/warn 집계 및 점수 계산 (bash와 동일한 정수 나눗셈)"""
+    sections: dict = {}
+    for item in items:
+        s = item["section"]
+        if s not in sections:
+            sections[s] = {"safe": 0, "vuln": 0, "warn": 0}
+        if item["kind"] in ("safe", "vuln", "warn"):
+            sections[s][item["kind"]] += 1
+
+    result = {}
+    for s, counts in sections.items():
+        total = counts["safe"] + counts["vuln"]
+        score = (counts["safe"] * 100 // total) if total > 0 else 0
+        result[s] = {**counts, "total": total, "score": score}
+    return result
 
 
 # ── HTML 생성 ─────────────────────────────────────────────────────────────────
@@ -122,31 +140,66 @@ def _score_color(score: int) -> str:
 def generate_html(data: dict, out_path: str) -> None:
     stats = data["stats"]
     total = stats["safe"] + stats["vuln"]
-    score = round(stats["safe"] / total * 100) if total > 0 else 0
+    # bash 와 동일한 정수 나눗셈 (round 아님)
+    score = (stats["safe"] * 100 // total) if total > 0 else 0
     sc = _score_color(score)
 
+    h_host      = escape(data["host"])
+    h_os        = escape(data["os"])
+    h_kernel    = escape(data["kernel"])
+    h_scan_time = escape(data["scan_time"])
+
+    # 섹션별 통계
+    section_stats = calc_section_stats(data["items"])
+
+    # 섹션 점수 테이블 HTML
+    section_rows = ""
+    for sec_name, sec in section_stats.items():
+        sc2 = _score_color(sec["score"])
+        h_sec = escape(sec_name)
+        section_rows += f"""
+        <tr>
+          <td>{h_sec}</td>
+          <td class="num-cell safe-col">{sec['safe']}</td>
+          <td class="num-cell vuln-col">{sec['vuln']}</td>
+          <td class="num-cell warn-col">{sec['warn']}</td>
+          <td class="num-cell"><b style="color:{sc2}">{sec['score']}점</b></td>
+        </tr>"""
+
+    # 결과 테이블 — rowspan 사전 계산
+    table_items = [it for it in data["items"] if it["kind"] not in ("info", "pass")]
+
+    # 섹션별 rowspan 계산 (섹션 이름 순으로 처음 등장 시만 셀 출력)
+    section_rowspan: dict = {}
+    for it in table_items:
+        section_rowspan[it["section"]] = section_rowspan.get(it["section"], 0) + 1
+
     rows_html = ""
-    prev_section = None
-    for item in data["items"]:
-        if item["kind"] in ("info", "pass"):
-            continue  # 정보/PASS 행은 테이블 제외 (상세 집계에만 포함)
+    section_first_seen: set = set()
+    for item in table_items:
         color = COLOR_MAP.get(item["kind"], "#fff")
         label = LABEL_KR.get(item["kind"], "")
-        section_cell = ""
-        if item["section"] != prev_section:
-            # 같은 섹션 그룹핑 — 실제 rowspan 계산이 복잡하므로 단순 출력
-            section_cell = f'<td class="section-cell">{item["section"]}</td>'
-            prev_section = item["section"]
+        h_section  = escape(item["section"])
+        h_check_id = escape(item["check_id"])
+        h_check    = escape(item["check"])
+        h_message  = escape(item["message"])
+
+        if item["section"] not in section_first_seen:
+            span = section_rowspan.get(item["section"], 1)
+            section_cell = (
+                f'<td class="section-cell" rowspan="{span}">{h_section}</td>'
+            )
+            section_first_seen.add(item["section"])
         else:
-            section_cell = '<td class="section-cell"></td>'
+            section_cell = ""
 
         rows_html += f"""
         <tr>
           {section_cell}
-          <td class="check-id">{item['check_id']}</td>
-          <td>{item['check']}</td>
+          <td class="check-id">{h_check_id}</td>
+          <td>{h_check}</td>
           <td class="badge" style="background:{color}">[{label}]</td>
-          <td class="msg">{item['message']}</td>
+          <td class="msg">{h_message}</td>
         </tr>"""
 
     html = f"""<!DOCTYPE html>
@@ -154,7 +207,7 @@ def generate_html(data: dict, out_path: str) -> None:
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>취약점 점검 결과 — {data['host']}</title>
+  <title>취약점 점검 결과 — {h_host}</title>
   <style>
     * {{ box-sizing: border-box; margin: 0; padding: 0; }}
     body {{ font-family: 'Malgun Gothic', 'Noto Sans KR', sans-serif;
@@ -171,35 +224,44 @@ def generate_html(data: dict, out_path: str) -> None:
     .safe-num   {{ color: #27ae60; }}
     .vuln-num   {{ color: #e74c3c; }}
     .warn-num   {{ color: #f39c12; }}
-    .table-wrap {{ padding: 0 32px 40px; }}
+    .section-wrap, .table-wrap {{ padding: 0 32px 24px; }}
+    .section-wrap h2, .table-wrap h2 {{
+        margin-bottom: 12px; font-size: 1.05em; color: #555; font-weight: 600;
+    }}
     table {{ width: 100%; border-collapse: collapse; background: #fff;
              border-radius: 8px; overflow: hidden;
-             box-shadow: 0 2px 6px rgba(0,0,0,.08); }}
+             box-shadow: 0 2px 6px rgba(0,0,0,.08); margin-bottom: 8px; }}
     th {{ background: #2c3e50; color: #fff; padding: 10px 12px;
           text-align: left; font-weight: 600; }}
     td {{ padding: 9px 12px; border-bottom: 1px solid #eee; vertical-align: top; }}
+    tr:last-child td {{ border-bottom: none; }}
     tr:hover td {{ background: #f9f9f9; }}
-    .section-cell {{ font-weight: 600; color: #555; white-space: nowrap; }}
+    .section-cell {{ font-weight: 600; color: #2c3e50; white-space: nowrap;
+                     border-right: 2px solid #ddd; vertical-align: middle; }}
     .check-id {{ font-family: monospace; color: #2980b9; white-space: nowrap; }}
     .badge {{ text-align: center; color: #fff; font-weight: bold;
-              border-radius: 4px; white-space: nowrap; }}
-    .msg {{ max-width: 480px; }}
+              border-radius: 4px; white-space: nowrap; padding: 3px 6px; }}
+    .msg {{ max-width: 480px; word-break: break-word; }}
+    .num-cell {{ text-align: center; }}
+    .safe-col {{ color: #27ae60; font-weight: 600; }}
+    .vuln-col {{ color: #e74c3c; font-weight: 600; }}
+    .warn-col {{ color: #f39c12; font-weight: 600; }}
   </style>
 </head>
 <body>
 <div class="header">
   <h1>Linux 취약점 점검 결과</h1>
-  <p>호스트: <b>{data['host']}</b> &nbsp;|&nbsp;
-     OS: {data['os']} &nbsp;|&nbsp;
-     커널: {data['kernel']} &nbsp;|&nbsp;
-     점검 시각: {data['scan_time']} &nbsp;|&nbsp;
+  <p>호스트: <b>{h_host}</b> &nbsp;|&nbsp;
+     OS: {h_os} &nbsp;|&nbsp;
+     커널: {h_kernel} &nbsp;|&nbsp;
+     점검 시각: {h_scan_time} &nbsp;|&nbsp;
      리포트 생성: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
 </div>
 
 <div class="summary">
   <div class="card">
     <div class="num score-num">{score}점</div>
-    <div class="lbl">보안 점수 (안전 / 전체)</div>
+    <div class="lbl">종합 보안 점수</div>
   </div>
   <div class="card">
     <div class="num safe-num">{stats['safe']}</div>
@@ -219,7 +281,26 @@ def generate_html(data: dict, out_path: str) -> None:
   </div>
 </div>
 
+<div class="section-wrap">
+  <h2>영역별 점수</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>점검 영역</th>
+        <th style="text-align:center">안전</th>
+        <th style="text-align:center">취약</th>
+        <th style="text-align:center">권장</th>
+        <th style="text-align:center">영역 점수</th>
+      </tr>
+    </thead>
+    <tbody>
+      {section_rows}
+    </tbody>
+  </table>
+</div>
+
 <div class="table-wrap">
+  <h2>상세 점검 결과</h2>
   <table>
     <thead>
       <tr>
@@ -259,6 +340,9 @@ def main() -> None:
 
     data = parse_results(txt_path)
 
+    # 섹션별 점수를 JSON에도 포함
+    data["section_stats"] = calc_section_stats(data["items"])
+
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
     print(f"[완료] JSON : {json_path}")
@@ -268,7 +352,7 @@ def main() -> None:
 
     stats = data["stats"]
     total = stats["safe"] + stats["vuln"]
-    score = round(stats["safe"] / total * 100) if total > 0 else 0
+    score = (stats["safe"] * 100 // total) if total > 0 else 0
     print(f"[요약] 안전={stats['safe']}, 취약={stats['vuln']}, 권장={stats['warn']}, 점수={score}/100")
 
 

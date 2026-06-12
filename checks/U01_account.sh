@@ -1,7 +1,7 @@
 #!/bin/bash
 # 계정 관리 점검 모듈
 # KISA U-01~U-04, U-44~U-53
-section_header "계정 관리 (U-01 ~ U-04, U-44 ~ U-53)"
+section_header "계정 관리 (U-01 ~ U-04, U-44 ~ U-53, U-66)"
 
 # ── U-01: root 계정 원격 접속 제한 ─────────────────────────────────────────────
 check_header "U-01" "root 계정 원격 접속 제한"
@@ -171,6 +171,7 @@ fi
 
 # 실제 /etc/shadow 해시 방식 확인 (root 계정 기준)
 _shadow_hash=$(awk -F: '$1=="root"{print $2}' /etc/shadow 2>/dev/null | cut -c1-3 || true)
+# shellcheck disable=SC2016
 case "${_shadow_hash:-}" in
     '$6$') result_safe "root 계정 해시 형식: SHA-512 (\$6\$)" ;;
     '$y$') result_safe "root 계정 해시 형식: yescrypt (\$y\$) — 강력한 최신 해시" ;;

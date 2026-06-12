@@ -89,7 +89,9 @@ unset _ipv6_all _ipv6_def _ipv6_disabled
 check_header "EX-KRN-08c" "불필요한 네트워크 프로토콜 모듈 비활성화 (CIS)"
 _proto_bad=()
 _proto_blocked=0
+_proto_total=0
 for _proto in dccp sctp rds tipc; do
+    ((_proto_total++))
     _loaded=false
     _blacklisted=false
     lsmod 2>/dev/null | grep -qE "^${_proto}[[:space:]]" && _loaded=true
@@ -109,12 +111,14 @@ done
 
 if [[ "${#_proto_bad[@]}" -gt 0 ]]; then
     result_vuln "불필요한 네트워크 프로토콜 로드됨: ${_proto_bad[*]} — /etc/modprobe.d/에 'install <proto> /bin/false' 권장"
+elif [[ "${_proto_blocked}" -eq "${_proto_total}" ]]; then
+    result_safe "불필요한 네트워크 프로토콜(dccp/sctp/rds/tipc) 모두 미로드 및 비활성화 설정됨"
 elif [[ "${_proto_blocked}" -gt 0 ]]; then
-    result_safe "불필요한 네트워크 프로토콜(dccp/sctp/rds/tipc) 미로드 및 비활성화 설정됨"
+    result_warn "불필요한 네트워크 프로토콜 일부(${_proto_blocked}/${_proto_total}) 차단 설정됨 — 나머지도 modprobe 비활성화 권장"
 else
     result_warn "불필요한 네트워크 프로토콜이 로드되지 않았으나 modprobe 비활성화 미설정 — 영구 차단 설정 권장"
 fi
-unset _proto_bad _proto _loaded _blacklisted _proto_blocked
+unset _proto_bad _proto _loaded _blacklisted _proto_blocked _proto_total
 
 # ── EX-KRN-08d: 무선 인터페이스 비활성화 (서버) ────────────────────────────────
 check_header "EX-KRN-08d" "무선 인터페이스 비활성화 (서버 환경)"

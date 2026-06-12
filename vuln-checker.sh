@@ -7,7 +7,8 @@
 # 실행 조건: root 권한 필요
 set -uo pipefail
 
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR
 
 # ── 라이브러리 로드 ─────────────────────────────────────────────────────────────
 # shellcheck source=lib/os_detect.sh
@@ -64,6 +65,8 @@ for _mod in "${MODULES[@]}"; do
     if [[ -f "${_mod_path}" ]]; then
         # shellcheck disable=SC1090
         source "${_mod_path}"
+    else
+        result_warn "점검 모듈 파일 없음: ${_mod}.sh — 해당 항목 건너뜀"
     fi
 done
 unset _mod _mod_path

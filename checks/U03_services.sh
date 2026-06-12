@@ -71,7 +71,7 @@ done
 unset _svc
 
 # ── U-24: NFS 서비스 비활성화 ──────────────────────────────────────────────────
-check_header "U-24" "NFS 서비스 비활성화"
+check_header "U-24/U-64" "NFS 서비스 비활성화"
 _nfs_active=false
 for _svc in nfs-server nfs nfs-kernel-server; do
     if is_service_active "${_svc}" 2>/dev/null; then
@@ -107,7 +107,7 @@ else
 fi
 
 # ── U-26: automountd 비활성화 ──────────────────────────────────────────────────
-check_header "U-26" "automountd 비활성화"
+check_header "U-26/U-65" "automountd / autofs 비활성화"
 if is_service_active "autofs" 2>/dev/null || is_process_running "automount"; then
     result_vuln "autofs/automountd 서비스가 실행 중입니다"
 else
@@ -129,13 +129,11 @@ unset _rpc_risky _rpc_found _svc
 
 # ── U-28: NIS/NIS+ 서비스 비활성화 ─────────────────────────────────────────────
 check_header "U-28" "NIS/NIS+ 서비스 비활성화"
-_nis_procs=$(ps aux 2>/dev/null | grep -v grep | grep -cE "ypserv|ypbind|ypxfrd|rpc.yppasswdd" || echo 0)
-if [[ "${_nis_procs}" -gt 0 ]]; then
+if is_process_running "ypserv|ypbind|ypxfrd|rpc.yppasswdd"; then
     result_vuln "NIS/NIS+ 서비스 실행 중 — 보안상 취약한 프로토콜, 비활성화 필요"
 else
     result_safe "NIS/NIS+ 서비스가 실행되지 않고 있습니다"
 fi
-unset _nis_procs
 
 # ── U-29: tftp/talk 서비스 비활성화 ────────────────────────────────────────────
 check_xinetd_svc "U-29-tftp" "tftp"  "tftp 서비스"
@@ -179,8 +177,8 @@ else
     result_pass "메일 서버가 설치되어 있지 않습니다"
 fi
 
-# ── U-45: 일반사용자의 Sendmail 실행 방지 (PrivacyOptions) ─────────────────────
-check_header "U-45" "일반사용자의 Sendmail 실행 방지 (PrivacyOptions)"
+# ── U-30-privacy: 일반사용자의 Sendmail 실행 방지 (PrivacyOptions) ─────────────
+check_header "U-30-privacy" "일반사용자의 Sendmail 실행 방지 (PrivacyOptions)"
 if [[ -f /etc/mail/sendmail.cf ]]; then
     _privacy=$(grep -i "^O PrivacyOptions\|^OPriv" /etc/mail/sendmail.cf 2>/dev/null \
         | grep -v "^#" | tail -1 || true)
@@ -272,7 +270,7 @@ if [[ -n "${_httpd_root}" ]]; then
             result_warn "기본 설치 파일/디렉터리 존재: ${_test} — 제거 검토 필요"
         fi
     done
-    result_warn "웹 매뉴얼 파일 및 기본 샘플 파일 수동 확인 권장"
+    result_info "웹 매뉴얼 파일 및 기본 샘플 파일 수동 확인 권장"
     unset _docroot _test
 else
     result_pass "Apache 웹 서비스가 설치되어 있지 않습니다"
@@ -369,26 +367,3 @@ for _f in /etc/issue.net /etc/motd; do
     fi
 done
 unset _f
-
-# ── U-64: NFS 서비스 비활성화 (서비스 관리 중복 항목, 재확인) ───────────────────
-check_header "U-64" "NFS 서비스 비활성화 (재점검)"
-_nfs2=false
-for _svc in nfs-server nfs nfs-kernel-server; do
-    if is_service_active "${_svc}" 2>/dev/null; then
-        _nfs2=true; break
-    fi
-done
-if ${_nfs2}; then
-    result_vuln "NFS 서비스가 활성화되어 있습니다"
-else
-    result_safe "NFS 서비스가 비활성화되어 있습니다"
-fi
-unset _nfs2 _svc
-
-# ── U-65: Autofs 비활성화 (재확인) ─────────────────────────────────────────────
-check_header "U-65" "Autofs 비활성화 (재점검)"
-if is_service_active "autofs" 2>/dev/null; then
-    result_vuln "autofs 서비스가 활성화되어 있습니다"
-else
-    result_safe "autofs 서비스가 비활성화되어 있습니다"
-fi

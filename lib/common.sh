@@ -4,10 +4,34 @@
 
 # ── 파일 속성 조회 ─────────────────────────────────────────────────────────────
 file_exists()     { [[ -e "$1" ]] && echo 1 || echo 0; }
-file_owner()      { stat -c "%U" "$1" 2>/dev/null || ls -ld "$1" 2>/dev/null | awk '{print $3}'; }
-file_group()      { stat -c "%G" "$1" 2>/dev/null || ls -ld "$1" 2>/dev/null | awk '{print $4}'; }
-file_perm_octal() { stat -c "%a" "$1" 2>/dev/null; }
-file_perm_sym()   { stat -c "%A" "$1" 2>/dev/null; }
+file_owner()      { stat -c "%U" "$1" 2>/dev/null || stat -f "%Su" "$1" 2>/dev/null || find "$1" -prune -exec stat -f "%Su" {} \; 2>/dev/null; }
+file_group()      { stat -c "%G" "$1" 2>/dev/null || stat -f "%Sg" "$1" 2>/dev/null || find "$1" -prune -exec stat -f "%Sg" {} \; 2>/dev/null; }
+file_perm_octal() { stat -c "%a" "$1" 2>/dev/null || stat -f "%Lp" "$1" 2>/dev/null; }
+file_perm_sym()   { stat -c "%A" "$1" 2>/dev/null || stat -f "%Sp" "$1" 2>/dev/null; }
+
+# ── 명령 실행 제한 시간 ──────────────────────────────────────────────────────
+# GNU coreutils timeout 이 있으면 사용하고, 없으면 그대로 실행한다.
+run_with_timeout() {
+    local seconds="$1"
+    shift
+    if command -v timeout &>/dev/null; then
+        timeout "${seconds}" "$@"
+    else
+        "$@"
+    fi
+}
+
+# ── 권한 비교 ─────────────────────────────────────────────────────────────────
+# actual 권한이 expected 권한보다 더 열려 있지 않으면 true.
+# 예: actual 640, expected 644 는 안전. actual 666, expected 644 는 취약.
+perm_within_limit() {
+    local actual="$1" expected="$2"
+    [[ -n "${actual}" && -n "${expected}" ]] || return 1
+    actual="${actual: -3}"
+    expected="${expected: -3}"
+    [[ "${actual}" =~ ^[0-7]{3}$ && "${expected}" =~ ^[0-7]{3}$ ]] || return 1
+    (( (8#${actual} & ~8#${expected}) == 0 ))
+}
 
 # ── 파일 소유자·권한 통합 점검 ────────────────────────────────────────────────
 # 파일 1개당 판정은 1개 (TOTAL +1) — 소유자와 권한 이슈를 하나의 결과로 통합
@@ -15,7 +39,7 @@ file_perm_sym()   { stat -c "%A" "$1" 2>/dev/null; }
 # Usage: check_file_attr <path> <expected_owner> <expected_perms>
 #   path           : 점검할 파일/디렉터리 경로
 #   expected_owner : 기대 소유자 (예: "root")
-#   expected_perms : 기대 권한(8진수). 복수 허용은 "|" 구분자 (예: "600|640")
+#   expected_perms : 최대 허용 권한(8진수). 복수 허용은 "|" 구분자 (예: "600|640")
 #
 # 파일이 존재하지 않으면 result_pass 처리 (해당 없음, TOTAL 미증가)
 check_file_attr() {
@@ -38,16 +62,16 @@ check_file_attr() {
         issues+=("소유자 '${owner}' (기대: '${expected_owner}')")
     fi
 
-    # 권한 검사 ("|" 구분 복수 허용값 지원)
+    # 권한 검사 ("|" 구분 복수 허용값 지원, 더 엄격한 권한은 안전)
     local matched=false
     local _p
     IFS='|' read -ra _perm_list <<< "${expected_perms}"
     for _p in "${_perm_list[@]}"; do
-        [[ "${perm_oct}" == "${_p}" ]] && { matched=true; break; }
+        perm_within_limit "${perm_oct}" "${_p}" && { matched=true; break; }
     done
     unset _perm_list _p
 
-    ${matched} || issues+=("권한 '${perm_oct}' (기대: '${expected_perms}')")
+    ${matched} || issues+=("권한 '${perm_oct}' (최대 허용: '${expected_perms}')")
 
     if [[ "${#issues[@]}" -eq 0 ]]; then
         result_safe "${path} — 소유자·권한 적절"
@@ -63,7 +87,12 @@ check_file_attr() {
 # ── 프로세스 점검 ─────────────────────────────────────────────────────────────
 # 반환: 0=실행 중, 1=실행 안 함
 is_process_running() {
-    ps aux 2>/dev/null | grep -v grep | grep -q "$1"
+    if command -v pgrep &>/dev/null; then
+        pgrep -f -- "$1" >/dev/null 2>&1
+    else
+        # shellcheck disable=SC2009
+        ps aux 2>/dev/null | grep -v grep | grep -q "$1"
+    fi
 }
 
 # ── 서비스 활성화 점검 ────────────────────────────────────────────────────────
@@ -87,12 +116,32 @@ is_xinetd_disabled() {
     grep -qE "disable[[:space:]]*=[[:space:]]*yes" "${path}" 2>/dev/null
 }
 
-# ── sshd_config 값 읽기 ─────────────────────────────────────────────────────
-# 주석 처리된 줄 제외, 마지막 유효 값 반환
-sshd_config_val() {
+# ── sshd_config 파일 값 읽기 ─────────────────────────────────────────────────
+# 주석 처리된 줄 제외, 마지막 유효 값 반환. sshd -T 실패 시 폴백으로 사용한다.
+sshd_config_file_val() {
     local key="$1"
     grep -iE "^[[:space:]]*${key}[[:space:]]" /etc/ssh/sshd_config 2>/dev/null \
         | awk '{print $2}' | tail -1
+}
+
+# ── sshd 유효 설정 값 읽기 ───────────────────────────────────────────────────
+# Include, Match, OpenSSH 기본값을 반영하기 위해 sshd -T 를 우선 사용한다.
+sshd_config_val() {
+    local key="$1"
+    local lower_key
+    lower_key=$(printf '%s' "${key}" | tr '[:upper:]' '[:lower:]')
+
+    if command -v sshd &>/dev/null; then
+        local val
+        val=$(sshd -T -C user=root,host="$(hostname 2>/dev/null || echo localhost)",addr=127.0.0.1 2>/dev/null \
+            | awk -v k="${lower_key}" '$1 == k {print $2; exit}')
+        if [[ -n "${val}" ]]; then
+            printf '%s\n' "${val}"
+            return 0
+        fi
+    fi
+
+    sshd_config_file_val "${key}"
 }
 
 # ── /etc/login.defs 값 읽기 ─────────────────────────────────────────────────

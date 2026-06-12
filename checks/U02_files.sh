@@ -24,8 +24,8 @@ unset _root_home _perm
 
 # ── U-06: 소유자 없는 파일·디렉터리 점검 ──────────────────────────────────────
 check_header "U-06" "소유자 없는 파일·디렉터리 점검"
-_noowner_file="${RESULT_DIR}/noowner_files.txt"
-find / \( -nouser -o -nogroup \) -xdev 2>/dev/null > "${_noowner_file}" || true
+_noowner_file="${CF%.txt}_noowner.txt"
+timeout 120 find / \( -nouser -o -nogroup \) -xdev 2>/dev/null > "${_noowner_file}" || true
 _count=$(wc -l < "${_noowner_file}")
 if [[ "${_count}" -eq 0 ]]; then
     result_safe "소유자/그룹 없는 파일이 없습니다"
@@ -87,16 +87,32 @@ check_file_attr "/etc/services" "root" "644"
 
 # ── U-13: SetUID/SetGID 설정 파일 점검 ─────────────────────────────────────────
 check_header "U-13" "SetUID, SetGID 설정 파일 점검"
-_suid_file="${RESULT_DIR}/setuid_files.txt"
-_sgid_file="${RESULT_DIR}/setgid_files.txt"
-find / -user root -perm -4000 -xdev 2>/dev/null > "${_suid_file}" || true
-find / -user root -perm -2000 -xdev 2>/dev/null > "${_sgid_file}" || true
+_suid_file="${CF%.txt}_setuid.txt"
+_sgid_file="${CF%.txt}_setgid.txt"
+timeout 120 find / -user root -perm -4000 -xdev 2>/dev/null > "${_suid_file}" || true
+timeout 120 find / -user root -perm -2000 -xdev 2>/dev/null > "${_sgid_file}" || true
 _suid_cnt=$(wc -l < "${_suid_file}")
 _sgid_cnt=$(wc -l < "${_sgid_file}")
-result_warn "SetUID 파일 ${_suid_cnt}개 — 목록 저장됨: ${_suid_file} (수동 검토 필요)"
-result_warn "SetGID 파일 ${_sgid_cnt}개 — 목록 저장됨: ${_sgid_file} (수동 검토 필요)"
-result_info "허용 예시: /usr/bin/passwd, /usr/bin/sudo, /usr/bin/su 등"
-unset _suid_file _sgid_file _suid_cnt _sgid_cnt
+
+# 비표준 경로(/usr, /bin, /sbin, /lib 외)의 SetUID/SetGID 파일만 경고 대상
+_unusual_suid=$(grep -vE "^/(usr|bin|sbin|lib|lib64)/" "${_suid_file}" 2>/dev/null || true)
+result_info "SetUID 파일 ${_suid_cnt}개 — 목록 저장됨: ${_suid_file}"
+if [[ -n "${_unusual_suid}" ]]; then
+    result_warn "비표준 경로 SetUID 파일 발견 — 즉시 수동 확인 필요:"
+    while IFS= read -r _sf; do result_info "  ${_sf}"; done <<< "${_unusual_suid}"
+else
+    result_safe "SetUID 파일 ${_suid_cnt}개 모두 표준 시스템 경로 (/usr, /bin, /sbin, /lib)"
+fi
+
+_unusual_sgid=$(grep -vE "^/(usr|bin|sbin|lib|lib64)/" "${_sgid_file}" 2>/dev/null || true)
+result_info "SetGID 파일 ${_sgid_cnt}개 — 목록 저장됨: ${_sgid_file}"
+if [[ -n "${_unusual_sgid}" ]]; then
+    result_warn "비표준 경로 SetGID 파일 발견 — 즉시 수동 확인 필요:"
+    while IFS= read -r _sf; do result_info "  ${_sf}"; done <<< "${_unusual_sgid}"
+else
+    result_safe "SetGID 파일 ${_sgid_cnt}개 모두 표준 시스템 경로"
+fi
+unset _suid_file _sgid_file _suid_cnt _sgid_cnt _unusual_suid _unusual_sgid _sf
 
 # ── U-14: 사용자/시스템 시작 파일 및 환경변수 파일 소유자·권한 ─────────────────
 check_header "U-14" "사용자·시스템 시작 파일 및 환경변수 파일 소유자·권한"
@@ -124,8 +140,8 @@ unset _bad_startup _user _uid _home _rc _rcpath _owner _f
 
 # ── U-15: World Writable 파일 점검 ─────────────────────────────────────────────
 check_header "U-15" "World Writable 파일 점검"
-_ww_file="${RESULT_DIR}/world_writable.txt"
-find / -perm -002 \( ! -type l \) -xdev 2>/dev/null \
+_ww_file="${CF%.txt}_world_writable.txt"
+timeout 120 find / -perm -002 \( ! -type l \) -xdev 2>/dev/null \
     | grep -vE "^/(proc|sys|dev)" > "${_ww_file}" || true
 _ww_cnt=$(wc -l < "${_ww_file}")
 if [[ "${_ww_cnt}" -eq 0 ]]; then
@@ -137,7 +153,7 @@ unset _ww_file _ww_cnt
 
 # ── U-16: /dev 에 존재하지 않는 device 파일 점검 ───────────────────────────────
 check_header "U-16" "/dev 에 major/minor 없는 비정상 device 파일 점검"
-_dev_file="${RESULT_DIR}/dev_nodev.txt"
+_dev_file="${CF%.txt}_dev_nodev.txt"
 find /dev -not -type d -not -type l \
     \( ! -type b \) \( ! -type c \) \( ! -type p \) \( ! -type s \) \
     2>/dev/null > "${_dev_file}" || true
@@ -234,8 +250,8 @@ unset _missing_home _user _uid _home _shell
 
 # ── U-56: 숨겨진 파일·디렉터리 검사 ───────────────────────────────────────────
 check_header "U-56" "숨겨진 파일·디렉터리 검사"
-_hidden_file="${RESULT_DIR}/hidden_files.txt"
-find / -name ".*" \
+_hidden_file="${CF%.txt}_hidden.txt"
+timeout 120 find / -name ".*" \
     \( -not -path "/proc/*" \) \
     \( -not -path "/sys/*" \) \
     \( -not -path "*/.git/*" \) \
@@ -248,7 +264,7 @@ unset _hidden_file _hidden_cnt
 
 # ── U-57: .netrc 파일 사용 금지 ────────────────────────────────────────────────
 check_header "U-57" ".netrc 파일 사용 금지"
-_netrc=$(find / -name ".netrc" -xdev 2>/dev/null | head -20 || true)
+_netrc=$(timeout 60 find / -name ".netrc" -xdev 2>/dev/null | head -20 || true)
 if [[ -z "${_netrc}" ]]; then
     result_safe ".netrc 파일이 없습니다"
 else

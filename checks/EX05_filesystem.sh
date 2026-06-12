@@ -80,7 +80,7 @@ unset _home_opts
 
 # ── EX-FS-05: 불필요한 파일시스템 모듈 비활성화 ────────────────────────────────
 check_header "EX-FS-05" "불필요한 파일시스템 모듈 비활성화 (CIS)"
-_fs_modules=(cramfs freevxfs jffs2 hfs hfsplus squashfs udf vfat)
+_fs_modules=(cramfs freevxfs jffs2 hfs hfsplus squashfs udf)
 _fs_loaded=()
 _fs_blocked=()
 for _mod in "${_fs_modules[@]}"; do
@@ -105,6 +105,18 @@ else
     result_info "modprobe 비활성화 미설정 — /etc/modprobe.d/disable-fs.conf 에 불필요 모듈 비활성화 권장"
 fi
 unset _fs_modules _fs_loaded _fs_blocked _mod
+
+# vfat: EFI 파티션에 필요하므로 별도 조건부 점검
+if ! findmnt -t vfat /boot/efi &>/dev/null 2>&1 && \
+   ! findmnt -t vfat /boot &>/dev/null 2>&1; then
+    if lsmod 2>/dev/null | grep -qE "^vfat[[:space:]]"; then
+        result_warn "vfat 모듈 로드됨 — EFI 파티션이 없는 시스템에서는 비활성화 검토 (/etc/modprobe.d/ 에 'install vfat /bin/false')"
+    else
+        result_safe "vfat 모듈 미로드 (EFI 파티션 없음)"
+    fi
+else
+    result_info "vfat — EFI 파티션(/boot/efi)이 있어 점검 제외"
+fi
 
 # ── EX-FS-06: GRUB 부트로더 패스워드 설정 ─────────────────────────────────────
 check_header "EX-FS-06" "부트로더(GRUB) 패스워드 설정"
@@ -274,8 +286,11 @@ if ! ${_ntp_ok} && is_service_active "ntpd" 2>/dev/null; then
     _ntp_ok=true
     if [[ -f /etc/ntp.conf ]]; then
         _ntp_servers=$(grep -E "^(server|pool)" /etc/ntp.conf 2>/dev/null | head -3 || true)
-        [[ -n "${_ntp_servers}" ]] && result_safe "ntp.conf — NTP 서버 설정됨" \
-            || result_warn "ntp.conf — NTP 서버 설정이 없습니다"
+        if [[ -n "${_ntp_servers}" ]]; then
+            result_safe "ntp.conf — NTP 서버 설정됨"
+        else
+            result_warn "ntp.conf — NTP 서버 설정이 없습니다"
+        fi
         unset _ntp_servers
     fi
 fi

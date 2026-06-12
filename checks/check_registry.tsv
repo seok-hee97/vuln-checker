@@ -1,0 +1,133 @@
+id	standard	severity	module	mode	description
+U-01	KISA-2021	상	U01_account	auto	root account remote login restriction
+U-02	KISA-2021	상	U01_account	auto	password complexity policy
+U-03	KISA-2021	상	U01_account	auto	account lockout threshold
+U-04	KISA-2021	상	U01_account	auto	shadow password usage
+U-05	KISA-2021	중	U02_files	auto	root home and PATH permissions
+U-06	KISA-2021	중	U02_files	auto	files and directories without owner or group
+U-07	KISA-2021	상	U02_files	auto	/etc/passwd owner and permissions
+U-08	KISA-2021	상	U02_files	auto	/etc/shadow owner and permissions
+U-09	KISA-2021	중	U02_files	auto	/etc/hosts owner and permissions
+U-10	KISA-2021	중	U02_files	auto	inetd and xinetd config owner and permissions
+U-11	KISA-2021	중	U02_files	auto	syslog config owner and permissions
+U-12	KISA-2021	중	U02_files	auto	/etc/services owner and permissions
+U-13	KISA-2021	중	U02_files	manual	SetUID and SetGID files review
+U-14	KISA-2021	중	U02_files	auto	startup and environment file ownership
+U-15	KISA-2021	중	U02_files	manual	world writable files review
+U-16	KISA-2021	중	U02_files	manual	abnormal device files review
+U-17	KISA-2021	상	U02_files	auto	.rhosts and hosts.equiv prohibition
+U-18	KISA-2021	중	U02_files	manual	host and port access control
+U-18-lpd	KISA-2021	중	U02_files	auto	hosts.lpd owner, permissions, and wildcard check
+U-19	KISA-2021	중	U03_services	auto	finger service disabled
+U-20	KISA-2021	상	U03_services	auto	anonymous FTP disabled
+U-21	KISA-2021	상	U03_services	auto	r services disabled
+U-22	KISA-2021	중	U03_services	auto	cron file owner and permissions
+U-23-echo	KISA-2021	중	U03_services	auto	echo service disabled
+U-23-discard	KISA-2021	중	U03_services	auto	discard service disabled
+U-23-daytime	KISA-2021	중	U03_services	auto	daytime service disabled
+U-23-chargen	KISA-2021	중	U03_services	auto	chargen service disabled
+U-24/U-64	KISA-2021	상	U03_services	auto	NFS service disabled
+U-25	KISA-2021	중	U03_services	auto	NFS exports access control
+U-26/U-65	KISA-2021	중	U03_services	auto	automount and autofs disabled
+U-27	KISA-2021	중	U03_services	auto	unnecessary RPC service review
+U-28	KISA-2021	상	U03_services	auto	NIS and NIS+ disabled
+U-29-tftp	KISA-2021	상	U03_services	auto	tftp service disabled
+U-29-talk	KISA-2021	중	U03_services	auto	talk service disabled
+U-29-ntalk	KISA-2021	중	U03_services	auto	ntalk service disabled
+U-30	KISA-2021	중	U03_services	manual	Sendmail version review
+U-30-privacy	KISA-2021	중	U03_services	auto	Sendmail PrivacyOptions review
+U-31	KISA-2021	상	U03_services	manual	SMTP relay restriction
+U-32	KISA-2021	중	U03_services	manual	DNS version review
+U-33	KISA-2021	상	U03_services	auto	DNS zone transfer restriction
+U-34	KISA-2021	중	U03_services	manual	web default files removal
+U-35	KISA-2021	중	U04_web	auto	Apache directory listing disabled
+U-36	KISA-2021	상	U04_web	auto	Apache process user is not root
+U-37	KISA-2021	중	U04_web	manual	parent directory access restriction
+U-38	KISA-2021	중	U04_web	manual	CGI, manual, and sample files review
+U-39	KISA-2021	중	U04_web	manual	DocumentRoot symlink review
+U-40	KISA-2021	중	U04_web	auto	upload and request body size restriction
+U-41	KISA-2021	중	U04_web	auto	web server version exposure prevention
+U-42	KISA-2021	상	U05_patch	auto	security patch status
+U-43	KISA-2021	상	U06_log	auto	log management policy and daemon status
+U-43-extra	KISA-2021	중	U06_log	auto	login record files exist
+U-44	KISA-2021	상	U01_account	auto	password maximum age
+U-44-warn	KISA-2021	중	U01_account	auto	password expiry warning age
+U-45	KISA-2021	상	U01_account	auto	password minimum age
+U-46	KISA-2021	중	U01_account	manual	unnecessary account review
+U-47	KISA-2021	중	U01_account	manual	admin group membership review
+U-48	KISA-2021	중	U01_account	manual	orphan GID review
+U-49	KISA-2021	상	U01_account	auto	duplicate UID prohibition
+U-50	KISA-2021	중	U01_account	auto	service account login shell review
+U-51	KISA-2021	중	U01_account	auto	session timeout policy
+U-52	KISA-2021	상	U01_account	auto	UID 0 account restriction
+U-53	KISA-2021	상	U01_account	auto	su command wheel restriction
+U-54	KISA-2021	중	U02_files	auto	home directory owner and permissions
+U-55	KISA-2021	중	U02_files	auto	home directory existence
+U-56	KISA-2021	하	U02_files	manual	hidden files and directories review
+U-57	KISA-2021	상	U02_files	auto	.netrc file prohibition
+U-58	KISA-2021	상	U03_services	auto	SSH protocol version
+U-59	KISA-2021	중	U03_services	auto	FTP security settings
+U-60	KISA-2021	중	U03_services	auto	ftpusers owner and permissions
+U-61	KISA-2021	중	U03_services	auto	at allow and deny file permissions
+U-62	KISA-2021	상	U03_services	auto	SNMP default community string
+U-63	KISA-2021	하	U03_services	manual	login banner setting
+U-66	KISA-2021	상	U01_account	auto	password hash algorithm
+U-67	KISA-2021	상	U06_log	auto	system logging facility settings
+U-68	KISA-2021	중	U06_log	manual	remote log server forwarding
+U-69	KISA-2021	중	U06_log	auto	login log file permissions
+U-70	KISA-2021	중	U06_log	auto	login and logout record retention
+U-71	KISA-2021	중	U06_log	auto	sudo command logging
+U-72	KISA-2021	중	U06_log	auto	event log retention and logrotate policy
+EX-SSH-01	CIS	권고	EX01_ssh	auto	PermitRootLogin restriction
+EX-SSH-02	CIS	권고	EX01_ssh	manual	PasswordAuthentication review
+EX-SSH-03	CIS	권고	EX01_ssh	auto	MaxAuthTries limit
+EX-SSH-04	CIS	권고	EX01_ssh	auto	PermitEmptyPasswords disabled
+EX-SSH-05	CIS	권고	EX01_ssh	manual	X11Forwarding disabled
+EX-SSH-06	CIS	권고	EX01_ssh	manual	SSH idle timeout
+EX-SSH-07	CIS	권고	EX01_ssh	manual	SSH allow users or groups
+EX-SSH-08	CIS	권고	EX01_ssh	auto	weak SSH ciphers and MACs
+EX-SSH-09	CIS	권고	EX01_ssh	auto	sshd_config owner and permissions
+EX-SSH-10	CIS	권고	EX01_ssh	manual	LoginGraceTime limit
+EX-SSH-11	CIS	권고	EX01_ssh	manual	SSH warning banner
+EX-SSH-12	CIS	권고	EX01_ssh	auto	UsePAM enabled
+EX-SSH-13	CIS	권고	EX01_ssh	auto	IgnoreRhosts enabled
+EX-SSH-14	CIS	권고	EX01_ssh	auto	HostbasedAuthentication disabled
+EX-SSH-15	CIS	권고	EX01_ssh	manual	PrintLastLog enabled
+EX-KRN-01~06	CIS	권고	EX02_kernel	auto	core sysctl security parameters
+EX-KRN-07	CIS	권고	EX02_kernel	auto	additional network sysctl parameters
+EX-KRN-08	CIS	권고	EX02_kernel	auto	SELinux or AppArmor status
+EX-KRN-08b	CIS	권고	EX02_kernel	manual	IPv6 disablement review
+EX-KRN-08c	CIS	권고	EX02_kernel	manual	unnecessary network protocol modules
+EX-KRN-08d	CIS	권고	EX02_kernel	manual	wireless interface review
+EX-KRN-09	CIS	권고	EX02_kernel	auto	firewall active status
+EX-AUD-01	CIS	권고	EX03_audit	auto	auditd service running
+EX-AUD-02	CIS	권고	EX03_audit	auto	audit rule files and key file watches
+EX-AUD-03	CIS	권고	EX03_audit	auto	auditd configuration
+EX-AUD-04	CIS	권고	EX03_audit	auto	loaded audit rule count
+EX-AUD-05	CIS	권고	EX03_audit	manual	privilege escalation command audit rules
+EX-AUD-06	CIS	권고	EX03_audit	manual	file deletion audit rules
+EX-AUD-07	CIS	권고	EX03_audit	manual	network environment change audit rules
+EX-AUD-08	CIS	권고	EX03_audit	manual	kernel module audit rules
+EX-AUD-09	CIS	권고	EX03_audit	manual	time change audit rules
+EX-SUD-01	CIS	권고	EX04_sudo	manual	NOPASSWD sudo review
+EX-SUD-02	CIS	권고	EX04_sudo	auto	sudoers owner and permissions
+EX-SUD-03	CIS	권고	EX04_sudo	manual	sudo session I/O recording
+EX-PKG-01	CIS	권고	EX04_sudo	auto	package integrity verification
+EX-SVC-01	CIS	권고	EX04_sudo	manual	unnecessary service review
+EX-SVC-02	CIS	권고	EX04_sudo	manual	running service inventory
+EX-FS-01	CIS	권고	EX05_filesystem	auto	/tmp mount options
+EX-FS-02	CIS	권고	EX05_filesystem	manual	/var/tmp mount options
+EX-FS-03	CIS	권고	EX05_filesystem	manual	/dev/shm mount options
+EX-FS-04	CIS	권고	EX05_filesystem	manual	/home mount options
+EX-FS-05	CIS	권고	EX05_filesystem	manual	unnecessary filesystem modules
+EX-FS-06	CIS	권고	EX05_filesystem	manual	GRUB password setting
+EX-FS-07	CIS	권고	EX05_filesystem	manual	single user mode authentication
+EX-FS-08	CIS	권고	EX05_filesystem	manual	core dump restrictions
+EX-FS-09	CIS	권고	EX05_filesystem	manual	default umask
+EX-FS-10	CIS	권고	EX05_filesystem	manual	time synchronization
+EX-FS-11	CIS	권고	EX05_filesystem	manual	PAM password history
+EX-INT-01	STIG	권고	EX06_integrity	auto	AIDE or Tripwire installation and setup
+EX-INT-02	STIG	권고	EX06_integrity	manual	FIPS mode status
+EX-INT-03	STIG	권고	EX06_integrity	auto	package signature verification
+EX-INT-04	STIG	권고	EX06_integrity	auto	passwd and group database consistency
+EX-INT-05	STIG	권고	EX06_integrity	auto	service account password fields
