@@ -48,7 +48,7 @@ if command -v rpm &>/dev/null; then
     result_info "RPM 패키지 무결성 검사 중... (수분 소요 가능)"
     _tampered_file="${CF%.txt}_tampered.txt"
     # MD5 불일치만 출력 (..5......)
-    rpm -Va --nosignature 2>/dev/null | grep -E "^\.\.[5]" > "${_tampered_file}" || true
+    run_with_timeout 300 rpm -Va --nosignature 2>/dev/null | grep -E "^\.\.[5]" > "${_tampered_file}" || true
     _tampered_cnt=$(wc -l < "${_tampered_file}")
     if [[ "${_tampered_cnt}" -eq 0 ]]; then
         result_safe "변조된 시스템 파일이 탐지되지 않았습니다"
@@ -59,7 +59,7 @@ if command -v rpm &>/dev/null; then
 elif command -v dpkg &>/dev/null; then
     result_info "dpkg 무결성 검사 중..."
     _tampered_file="${CF%.txt}_tampered.txt"
-    dpkg --verify 2>/dev/null | grep -v "^$" > "${_tampered_file}" || true
+    run_with_timeout 120 dpkg --verify 2>/dev/null | grep -v "^$" > "${_tampered_file}" || true
     _tampered_cnt=$(wc -l < "${_tampered_file}")
     if [[ "${_tampered_cnt}" -eq 0 ]]; then
         result_safe "변조된 dpkg 패키지 파일이 탐지되지 않았습니다"

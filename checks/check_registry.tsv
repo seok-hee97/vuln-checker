@@ -70,7 +70,7 @@ U-59	KISA-2021	중	U03_services	auto	FTP security settings
 U-60	KISA-2021	중	U03_services	auto	ftpusers owner and permissions
 U-61	KISA-2021	중	U03_services	auto	at allow and deny file permissions
 U-62	KISA-2021	상	U03_services	auto	SNMP default community string
-U-63	KISA-2021	하	U03_services	manual	login banner setting
+U-63	KISA-2021	하	U03_services	auto	login banner setting
 U-66	KISA-2021	상	U01_account	auto	password hash algorithm
 U-67	KISA-2021	상	U06_log	auto	system logging facility settings
 U-68	KISA-2021	중	U06_log	manual	remote log server forwarding

@@ -48,7 +48,7 @@ collect_sysinfo
 MODULES=(
     U01_account    # 계정 관리       U-01~U-04, U-44~U-53, U-66
     U02_files      # 파일 관리       U-05~U-18, U-54~U-57 (hosts.lpd, xinetd.d 포함)
-    U03_services   # 서비스 관리     U-19~U-34, U-45, U-58~U-65
+    U03_services   # 서비스 관리     U-19~U-34, U-58~U-65
     U04_web        # 웹 서비스       U-35~U-41
     U05_patch      # 패치 관리       U-42
     U06_log        # 로그 관리       U-43, U-67~U-72

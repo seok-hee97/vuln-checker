@@ -25,7 +25,7 @@ unset _root_home _perm
 # ── U-06: 소유자 없는 파일·디렉터리 점검 ──────────────────────────────────────
 check_header "U-06" "소유자 없는 파일·디렉터리 점검"
 _noowner_file="${CF%.txt}_noowner.txt"
-timeout 120 find / \( -nouser -o -nogroup \) -xdev 2>/dev/null > "${_noowner_file}" || true
+run_with_timeout 120 find / \( -nouser -o -nogroup \) -xdev 2>/dev/null > "${_noowner_file}" || true
 _count=$(wc -l < "${_noowner_file}")
 if [[ "${_count}" -eq 0 ]]; then
     result_safe "소유자/그룹 없는 파일이 없습니다"
@@ -89,8 +89,8 @@ check_file_attr "/etc/services" "root" "644"
 check_header "U-13" "SetUID, SetGID 설정 파일 점검"
 _suid_file="${CF%.txt}_setuid.txt"
 _sgid_file="${CF%.txt}_setgid.txt"
-timeout 120 find / -user root -perm -4000 -xdev 2>/dev/null > "${_suid_file}" || true
-timeout 120 find / -user root -perm -2000 -xdev 2>/dev/null > "${_sgid_file}" || true
+run_with_timeout 120 find / -user root -perm -4000 -xdev 2>/dev/null > "${_suid_file}" || true
+run_with_timeout 120 find / -user root -perm -2000 -xdev 2>/dev/null > "${_sgid_file}" || true
 _suid_cnt=$(wc -l < "${_suid_file}")
 _sgid_cnt=$(wc -l < "${_sgid_file}")
 
@@ -141,7 +141,7 @@ unset _bad_startup _user _uid _home _rc _rcpath _owner _f
 # ── U-15: World Writable 파일 점검 ─────────────────────────────────────────────
 check_header "U-15" "World Writable 파일 점검"
 _ww_file="${CF%.txt}_world_writable.txt"
-timeout 120 find / -perm -002 \( ! -type l \) -xdev 2>/dev/null \
+run_with_timeout 120 find / -perm -002 \( ! -type l \) -xdev 2>/dev/null \
     | grep -vE "^/(proc|sys|dev)" > "${_ww_file}" || true
 _ww_cnt=$(wc -l < "${_ww_file}")
 if [[ "${_ww_cnt}" -eq 0 ]]; then
@@ -251,7 +251,7 @@ unset _missing_home _user _uid _home _shell
 # ── U-56: 숨겨진 파일·디렉터리 검사 ───────────────────────────────────────────
 check_header "U-56" "숨겨진 파일·디렉터리 검사"
 _hidden_file="${CF%.txt}_hidden.txt"
-timeout 120 find / -name ".*" \
+run_with_timeout 120 find / -name ".*" \
     \( -not -path "/proc/*" \) \
     \( -not -path "/sys/*" \) \
     \( -not -path "*/.git/*" \) \
@@ -264,7 +264,7 @@ unset _hidden_file _hidden_cnt
 
 # ── U-57: .netrc 파일 사용 금지 ────────────────────────────────────────────────
 check_header "U-57" ".netrc 파일 사용 금지"
-_netrc=$(timeout 60 find / -name ".netrc" -xdev 2>/dev/null | head -20 || true)
+_netrc=$(run_with_timeout 60 find / -name ".netrc" -xdev 2>/dev/null | head -20 || true)
 if [[ -z "${_netrc}" ]]; then
     result_safe ".netrc 파일이 없습니다"
 else

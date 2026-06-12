@@ -43,11 +43,17 @@ def parse_results(txt_path: str) -> dict:
     current_check = ""
     current_check_id = ""
 
+    # 섹션 헤더 감지 상태 머신
+    # section_header() 출력 형식: "===\n  섹션명\n==="
+    # 0: 일반, 1: === 직후 (섹션명 후보 대기), 2: 후보 확인 대기
+    _hdr_state = 0
+    _pending_section = ""
+
     with open(txt_path, encoding="utf-8", errors="replace") as f:
         for raw_line in f:
             line = strip_ansi(raw_line.rstrip())
 
-            # 메타 정보 추출
+            # 메타 정보 추출 (상태와 무관하게 항상 수행)
             if line.startswith("  시작 시각"):
                 data["scan_time"] = line.split(":", 1)[-1].strip()
             elif line.startswith("  호스트명"):
@@ -57,14 +63,32 @@ def parse_results(txt_path: str) -> dict:
             elif line.startswith("  커널"):
                 data["kernel"] = line.split(":", 1)[-1].strip()
 
-            # 섹션 헤더 (=== 다음 줄)
+            # 섹션 헤더 상태 머신
             if re.match(r"^={10,}", line):
+                if _hdr_state == 2:
+                    # 두 번째 === 확인 → 후보를 실제 섹션명으로 확정
+                    current_section = _pending_section
+                    _pending_section = ""
+                    _hdr_state = 0
+                else:
+                    _hdr_state = 1
                 continue
-            if re.match(r"^  [가-힣A-Z]", line) and not line.strip().startswith("["):
+
+            if _hdr_state == 1:
                 _stripped = line.strip()
-                if not re.match(r"^[-=]+$", _stripped):
-                    current_section = _stripped
+                if _stripped and not _stripped.startswith("[") and not re.match(r"^[-=]+$", _stripped):
+                    _pending_section = _stripped
+                    _hdr_state = 2
+                else:
+                    _hdr_state = 0
+                # 메타 추출은 위에서 완료. check_header/결과 파싱은 불필요 (=== 바로 뒤)
                 continue
+
+            if _hdr_state == 2:
+                # === 없이 다른 줄이 오면 섹션 후보 폐기
+                _pending_section = ""
+                _hdr_state = 0
+                # 이 줄은 일반 처리로 fall-through
 
             # 점검 항목 헤더: [U-01], [U-24/U-64], [EX-KRN-01~06], [U-43-extra] 등
             m = re.match(r"\s+\[([A-Za-z0-9/_~-]+)\]\s+(.+)", line)
@@ -73,7 +97,9 @@ def parse_results(txt_path: str) -> dict:
                 current_check = m.group(2).strip()
                 continue
 
-            # 결과 라인
+            # 결과 라인: 반드시 "==>" 포함 (요약 통계 줄과 구분)
+            if "==>" not in line:
+                continue
             for label, kind in LABEL_MAP.items():
                 if label in line:
                     msg = re.sub(r".*==>\s*\[[^\]]+\]\s*", "", line).strip()

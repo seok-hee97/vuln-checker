@@ -34,7 +34,7 @@ case "${OS_FAMILY}" in
             unset _sec_count _sec_query_status _sec_file
 
             # 마지막 업데이트 날짜 확인
-            _last_update=$(rpm -qa --last 2>/dev/null | head -1 | awk '{print $2, $3, $4, $5}')
+            _last_update=$(run_with_timeout 30 rpm -qa --last 2>/dev/null | head -1 | awk '{print $2, $3, $4, $5}')
             result_info "마지막 패키지 업데이트: ${_last_update:-확인불가}"
             unset _last_update
         else
